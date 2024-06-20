@@ -1,14 +1,14 @@
-const Database = require('better-sqlite3');
+import Database from 'better-sqlite3';
 
 const db = new Database('images.db');
-
 
 // Users table
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    
+    user_id INTEGER PRIMARY KEY NOT NULL,
+    first_name TEXT,
+    last_name TEXT,
+    username TEXT
   )
 `);
 
@@ -20,8 +20,8 @@ db.exec(`
     file_id TEXT,
     caption TEXT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
   )
 `);
 
-module.exports = db;
+export default db;
