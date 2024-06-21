@@ -1,5 +1,5 @@
 import { chatAction } from '@grammyjs/auto-chat-action'
-import { InlineKeyboard } from 'grammy';
+import { InlineKeyboard, Keyboard } from 'grammy';
 import { Composer } from 'grammy'
 import type { Context } from '#root/bot/context.js'
 import { isAdmin } from '#root/bot/filters/index.js'
@@ -7,7 +7,6 @@ import { setCommandsHandler } from '#root/bot/handlers/index.js'
 import { logHandle } from '#root/bot/helpers/logging.js'
 import { getOldestMessages, deleteMessageById } from '#root/bot/db/db_commands.js';
 import { ShareMessage } from '#root/bot/db/db_commands.js';
-import { log } from 'console';
 
 const composer = new Composer<Context>()
 
@@ -22,50 +21,56 @@ feature.command(
 
 // Command to view messages
 composer.command('viewmessages', async (ctx) => {
-  try {
-    const messages = getOldestMessages(10, 0) as ShareMessage[];
-    
-    for (const message of messages) {
-      const hello_death = "qweqweqw"
-      const fileId = "AgACAgIAAxkBAAOTZnSnCDEnRKdWlq7Cv25c0b-I-VkAAoHYMRuiealLt"
-      const keyboard = new InlineKeyboard().text('Delete', `delete:${fileId}`);
-      const chat = await ctx.api.getChat(message.user_id);
-      const chatId = chat.id.toString();
-      
-      await ctx.api.sendPhoto(chatId, message.file_id, {
-        caption: `From: ${message.first_name} ${message.last_name} (@${message.username})\nCaption: ${message.caption}`,
-        reply_markup: keyboard
-      });
-    }
-  } catch (error) {
-    console.error('Error sending photo or editing message:', error);
-  }
+  await sendMessagesWithKeyboard(ctx, 0);
 });
 
 // Handle delete button callback
 composer.callbackQuery(/^delete:(.+)$/, async (ctx) => {
   try {
     const fileId = ctx.match[1];
-    await deleteMessageById(ctx.callbackQuery.data); // Assuming deleteMessageById deletes the message
-    await ctx.deleteMessage(); // Delete the original callback query message
+    await deleteMessageById(fileId);
+    await ctx.deleteMessage();
   } catch (error) {
     console.error('Error handling delete callback:', error);
   }
 });
-// Handle next button callback
-// feature.callbackQuery(/^next:(\d+)$/, async (ctx) => {
-//   const offset = parseInt(ctx.match[1], 10);
-//   const messages = getOldestMessages(10, offset) as ShareMessage[];
-//   const keyboard = await createMessageManagementKeyboard(ctx, offset);
+
+composer.callbackQuery(/^next:(\d+)$/, async (ctx) => {
+  try {
+    const offset = ctx.match[1];
+    await sendMessagesWithKeyboard(ctx, parseInt(offset));
+  } catch (error) {
+    console.error('Error handling refresh callback:', error);
+  }
+});
 
 
-//   for (const message of messages) {
-//     console.log(message)
-//     await ctx.replyWithPhoto(message.file_id, {
-//       caption: `From: ${message.first_name} ${message.last_name} (@${message.username})\nCaption: ${message.caption}`,
-//       reply_markup: keyboard.text('Delete', `delete:${message.file_id}`).row()
-//     });
-//   }
-// });
+async function sendMessagesWithKeyboard(ctx: Context, offset: number) {
+  try {
+    const messages = await getOldestMessages(10, offset) as ShareMessage[];
 
+    for (let i = 0; i < messages.length; i++) {
+      const message = messages[i];
+      const keyboard = new InlineKeyboard().text('Delete', `delete:${message.id}`);
+
+      if (i === messages.length - 1) {
+        keyboard.text('Next 10', `next:${offset + 10}`);
+      }
+
+      const chat = await ctx.api.getChat(message.user_id);
+      const chatId = chat.id.toString();
+
+      await ctx.api.sendPhoto(chatId, message.file_id, {
+        caption: `From: ${message.first_name} ${message.last_name} (@${message.username})\nCaption: ${message.caption}`,
+        reply_markup: keyboard
+      });
+    }
+
+    if (messages.length === 0) {
+      await ctx.reply('No more messages to display.');
+    }
+  } catch (error) {
+    console.error('Error sending photo or editing message:', error);
+  }
+}
 export { composer as adminFeature }

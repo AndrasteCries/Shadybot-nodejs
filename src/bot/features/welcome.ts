@@ -61,7 +61,7 @@ feature.on(':photo', async (ctx) => {
   const userId = ctx.from?.id;
   const admins = config.BOT_ADMINS;
 
-  if (admins.includes(ctx.from?.id)) {
+  if (!admins.includes(ctx.from?.id)) {
     try {
       const photoFileId = ctx.message.photo[0].file_id;
       const caption = ctx.message.caption || '';
